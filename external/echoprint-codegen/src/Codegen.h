@@ -38,15 +38,18 @@ class CODEGEN_API Codegen {
 public:
     Codegen(const float* pcm, uint numSamples, int start_offset);
 
-    string getCodeString(){return _CodeString;}
+    //string getCodeString(){return _CodeString;}
+    string getJsonCodes(){return _JsonCodes;}
     int getNumCodes(){return _NumCodes;}
     float getVersion() { return VERSION; }
 private:
     Fingerprint* computeFingerprint(SubbandAnalysis *pSubbandAnalysis, int start_offset);
-    string createCodeString(vector<FPCode> vCodes);
+    //string createCodeString(vector<FPCode> vCodes);
+    string createJsonCodes(vector<FPCode> vCodes);
 
     string compress(const string& s);
-    string _CodeString;
+    //string _CodeString;
+    string _JsonCodes;
     int _NumCodes;
 };
 

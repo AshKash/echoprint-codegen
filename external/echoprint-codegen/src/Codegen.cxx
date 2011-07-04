@@ -31,7 +31,8 @@ Codegen::Codegen(const float* pcm, uint numSamples, int start_offset) {
     Fingerprint *pFingerprint = new Fingerprint(pSubbandAnalysis, start_offset);
     pFingerprint->Compute();
 
-    _CodeString = createCodeString(pFingerprint->getCodes());
+    //_CodeString = createCodeString(pFingerprint->getCodes());
+    _JsonCodes = createJsonCodes(pFingerprint->getCodes());
     _NumCodes = pFingerprint->getCodes().size();
 
     delete pFingerprint;
@@ -40,6 +41,32 @@ Codegen::Codegen(const float* pcm, uint numSamples, int start_offset) {
     delete pAudio;
 }
 
+string Codegen::createJsonCodes(vector<FPCode> vCodes)
+{
+  // Ashwin - Added this function to return list of codes
+  // as Json list (as a string)
+  std::ostringstream codestream;
+  codestream << "[[";
+  for (uint i = 0; i < vCodes.size(); i++) {
+    codestream << vCodes[i].frame;
+    if (i != vCodes.size() - 1)
+      codestream << ",";
+  }
+  codestream << "],[";
+  
+  for (uint i = 0; i < vCodes.size(); i++) {
+    int hash = vCodes[i].code;
+    codestream << hash;
+    if (i != vCodes.size() - 1)
+      codestream << ",";
+  }
+  codestream << "]]";
+
+  return codestream.str();
+  
+}
+
+#if 1==0
 string Codegen::createCodeString(vector<FPCode> vCodes) {
     if (vCodes.size() < 3) {
         return "";
@@ -82,3 +109,5 @@ string Codegen::compress(const string& s) {
     delete [] compressed;
     return encoded;
 }
+
+#endif

@@ -3,6 +3,10 @@
 //  Copyright 2011 The Echo Nest Corporation. All rights reserved.
 //
 
+// Modified by Ashwin - This now returns results that are not compressed
+// nor base64 encoded. So it will not be possible to give output of this
+// to server. Instead, we will store the FPs in MySQL.
+// Echonest-server is a huge hack that will not scale!
 
 #include <stdio.h>
 #include <string.h>
@@ -133,12 +137,12 @@ char* json_string_for_file(char* filename, int start_offset, int duration, int t
     auto_ptr<Metadata> pMetadata(new Metadata(filename));
 
     // preamble + codelen
-    char* output = (char*) malloc(sizeof(char)*(16384 + strlen(pCodegen->getCodeString().c_str()) ));
+    char* output = (char*) malloc(sizeof(char)*(16384 + strlen(pCodegen->getJsonCodes().c_str()) ));
 
     sprintf(output,"{\"metadata\":{\"artist\":\"%s\", \"release\":\"%s\", \"title\":\"%s\", \"genre\":\"%s\", \"bitrate\":%d,"
                     "\"sample_rate\":%d, \"duration\":%d, \"filename\":\"%s\", \"samples_decoded\":%d, \"given_duration\":%d,"
                     " \"start_offset\":%d, \"version\":%2.2f, \"codegen_time\":%2.6f, \"decode_time\":%2.6f}, \"code_count\":%d,"
-                    " \"code\":\"%s\", \"tag\":%d}",
+                    " \"code\":%s, \"tag\":%d}",
         escape(pMetadata->Artist()).c_str(),
         escape(pMetadata->Album()).c_str(),
         escape(pMetadata->Title()).c_str(),
@@ -154,7 +158,7 @@ char* json_string_for_file(char* filename, int start_offset, int duration, int t
         t2,
         t1,
         pCodegen->getNumCodes(),
-        pCodegen->getCodeString().c_str(),
+        pCodegen->getJsonCodes().c_str(),
         tag
     );
     return output;

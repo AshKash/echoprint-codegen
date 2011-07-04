@@ -8,6 +8,8 @@
 #include "Params.h"
 #include <string.h>
 
+// TODO: This hash will not give identical results on big endian and little endian machines
+// Keep this in mind if you are porting to iPhone/Android... Ashwin
 unsigned int MurmurHash2 ( const void * key, int len, unsigned int seed ) {
     // MurmurHash2, by Austin Appleby http://sites.google.com/site/murmurhash/
     // m and r are constants set by austin
