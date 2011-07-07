@@ -194,6 +194,10 @@ void Fingerprint::Compute() {
 
                 uint p[2][6];
                 int nhashes = 6;
+		for (uint i = 0; i < 6;i++) {
+		  p[0][i] = 0;
+		  p[1][i] = 0;
+		}
 
                 if ((int)onset == (int)onset_counter_for_band[band]-4)  { nhashes = 3; }
                 if ((int)onset == (int)onset_counter_for_band[band]-3)  { nhashes = 1; }
@@ -216,17 +220,17 @@ void Fingerprint::Compute() {
 
                 // For each pair emit a code
                 for(uint k=0;k<6;k++) {
-                    // Quantize the time deltas to 23ms
-                    short time_delta0 = (short)quantized_time_for_frame_delta(p[0][k]);
-                    short time_delta1 = (short)quantized_time_for_frame_delta(p[1][k]);
-                    // Create a key from the time deltas and the band index
-                    memcpy(hash_material+0, (const void*)&time_delta0, 2);
-                    memcpy(hash_material+2, (const void*)&time_delta1, 2);
-                    memcpy(hash_material+4, (const void*)&band, 1);
-                    uint hashed_code = MurmurHash2(&hash_material, 5, HASH_SEED) & HASH_BITMASK;
+		  // Quantize the time deltas to 23ms
+		  short time_delta0 = (short)quantized_time_for_frame_delta(p[0][k]);
+		  short time_delta1 = (short)quantized_time_for_frame_delta(p[1][k]);
+		  // Create a key from the time deltas and the band index
+		  memcpy(hash_material+0, (const void*)&time_delta0, 2);
+		  memcpy(hash_material+2, (const void*)&time_delta1, 2);
+		  memcpy(hash_material+4, (const void*)&band, 1);
+		  uint hashed_code = MurmurHash2(&hash_material, 5, HASH_SEED) & HASH_BITMASK;
 
-                    // Set the code alongside the time of onset
-                    _Codes[actual_codes++] = FPCode(time_for_onset_ms_quantized, hashed_code);
+		  // Set the code alongside the time of onset
+		  _Codes[actual_codes++] = FPCode(time_for_onset_ms_quantized, hashed_code);
                     //fprintf(stderr, "whee %d,%d: [%d, %d] (%d, %d), %d = %u at %d\n", actual_codes, k, time_delta0, time_delta1, p[0][k], p[1][k], band, hashed_code, time_for_onset_ms_quantized);
                 }
             }
