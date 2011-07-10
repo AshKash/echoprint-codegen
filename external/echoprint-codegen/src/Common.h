@@ -43,6 +43,15 @@ static inline double now (void) {
     return now;
 }
 
+// Returns the current date in seconds.  The precision is in microseconds.
+static inline long long now2 (void) {
+    struct timeval tv;
+    long long now;
+    gettimeofday (&tv, NULL);
+    now = tv.tv_usec + 1e+6 * tv.tv_sec;
+    return now;
+}
+
 typedef unsigned int uint;
 #define NELEM(array) (sizeof(array) / sizeof(array[0]))
 

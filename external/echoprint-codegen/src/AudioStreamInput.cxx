@@ -88,21 +88,24 @@ bool AudioStreamInput::ProcessRawFile(const char* rawFilename) {
 
 // reads raw signed 16-bit shorts from stdin, for example:
 // ffmpeg -i fille.mp3 -f s16le -ac 1 -ar 11025 - | TestAudioSTreamInput
-bool AudioStreamInput::ProcessStandardInput(void) {
+bool AudioStreamInput::ProcessStandardInput(uint numSamples) {
     // TODO - Windows will explodey at not setting O_BINARY on stdin.
-    return ProcessFilePointer(stdin);
+  return ProcessFilePointer(stdin, numSamples);
 }
 
-bool AudioStreamInput::ProcessFilePointer(FILE* pFile) {
+bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     std::vector<short*> vChunks;
     uint nSamplesPerChunk = (uint) Params::AudioStreamInput::SamplingRate * Params::AudioStreamInput::SecondsPerChunk;
     uint samplesRead = 0;
-    do {
+    while (true) {
         short* pChunk = new short[nSamplesPerChunk];
         samplesRead = fread(pChunk, sizeof (short), nSamplesPerChunk, pFile);
-        _NumberSamples += samplesRead;
-        vChunks.push_back(pChunk);
-    } while (samplesRead > 0);
+		//printf("***Read: %d\n", samplesRead);
+		if (samplesRead == 0) break;
+		_NumberSamples += samplesRead;
+		vChunks.push_back(pChunk);
+		if (numSamples != 0 && _NumberSamples >= numSamples) break;
+    }
 
     // Convert from shorts to 16-bit floats and copy into sample buffer.
     uint sampleCounter = 0;

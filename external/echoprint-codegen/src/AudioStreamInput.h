@@ -13,7 +13,6 @@
 #include <math.h>
 #include "File.h"
 #ifdef _WIN32
-#define and &&
 #define snprintf _snprintf
 #endif
 
@@ -24,8 +23,8 @@ public:
     virtual bool ProcessFile(const char* filename, int offset_s=0, int seconds=0);
     virtual std::string GetName() = 0;
     bool ProcessRawFile(const char* rawFilename);
-    bool ProcessStandardInput(void);
-    bool ProcessFilePointer(FILE* pFile);
+    bool ProcessStandardInput(uint numSamples=0);
+    bool ProcessFilePointer(FILE* pFile, uint numSamples=0);
     int getNumSamples() const {return _NumberSamples;}
     const float* getSamples() {return _pSamples;}
     double getDuration() { return (double)getNumSamples() / Params::AudioStreamInput::SamplingRate; }
@@ -59,13 +58,19 @@ protected:
     std::string GetCommandLine(const char* filename) {
         // TODO: Windows
         char message[4096] = {0};
-        if (_Offset_s == 0 and _Seconds == 0)
-            snprintf(message, NELEM(message), "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le - 2>/dev/null",
-                    filename, Params::AudioStreamInput::Channels, (uint) Params::AudioStreamInput::SamplingRate);
-        else
-            snprintf(message, NELEM(message), "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le -t %d -ss %d - 2>/dev/null",
-                    filename, Params::AudioStreamInput::Channels, (uint) Params::AudioStreamInput::SamplingRate, _Seconds, _Offset_s);
-
+        if (_Offset_s == 0 && _Seconds == 0) {
+            snprintf(message, NELEM(message), 
+					 "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le - 2>/dev/null",
+					 filename, Params::AudioStreamInput::Channels, 
+					 (uint) Params::AudioStreamInput::SamplingRate);
+        } else {
+            snprintf(message, NELEM(message), 
+					 "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le -t %d -ss %d - "
+					 "2>/dev/null",
+                    filename, Params::AudioStreamInput::Channels, 
+					 (uint) Params::AudioStreamInput::SamplingRate, 
+					 _Seconds, _Offset_s);
+		}
         return std::string(message);
     }
 };
@@ -82,13 +87,20 @@ protected:
     bool IsSupported(const char* pFileName){ return File::ends_with(pFileName, ".mp3");};
     std::string GetCommandLine(const char* filename) {
         char message[4096] = {0};
-        if (_Offset_s == 0 and _Seconds == 0)
-            snprintf(message, NELEM(message), "mpg123 --quiet --singlemix --stdout --rate %d \"%s\"",
-                (uint) Params::AudioStreamInput::SamplingRate, filename);
-        else
-            snprintf(message, NELEM(message), "mpg123 --quiet --singlemix --stdout --rate %d --skip %d --frames %d \"%s\"",
-                (uint) Params::AudioStreamInput::SamplingRate, (uint)(_Offset_s * FRAMES_PER_SECOND) /* unprecise */, (uint)ceilf(_Seconds * FRAMES_PER_SECOND) /* unprecise */, filename);
-        return std::string(message);
+        if (_Offset_s == 0 && _Seconds == 0) {
+            snprintf(message, NELEM(message), 
+					 "mpg123 --quiet --singlemix --stdout --rate %d \"%s\"",
+					 (uint) Params::AudioStreamInput::SamplingRate, filename);
+        } else {
+            snprintf(message, NELEM(message), 
+					 "mpg123 --quiet --singlemix --stdout --rate %d "
+					 "--skip %d --frames %d \"%s\"",
+					 (uint) Params::AudioStreamInput::SamplingRate, 
+					 (uint)(_Offset_s * FRAMES_PER_SECOND) /* unprecise */,
+					 (uint)ceilf(_Seconds * FRAMES_PER_SECOND) /* unprecise */,
+					 filename);
+			return std::string(message);
+		}
     }
 };
 
