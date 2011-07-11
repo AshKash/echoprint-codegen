@@ -68,7 +68,7 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 {
     // Given a filename, do all the work to get a JSON string output.
     double t1 = now();
-    AudioStreamInput * pAudio;
+    auto_ptr <AudioStreamInput> pAudio;
 	uint sampleRate;
 	uint bitrate;
 	uint numSamples;
@@ -79,13 +79,13 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 		sampleRate = 11025;   // samples per second
 		bitrate = sampleRate * 16 / 1024;     // kb/s
 		numSamples = sampleRate * duration;
-		pAudio = new StdinStreamInput();
+		pAudio.reset( new StdinStreamInput() );
 		pAudio->ProcessStandardInput(numSamples);
 
 		// Need to read limited number of samples and write out json
 		// so as to make it work in streaming fashion
 	} else {
-		pAudio = new FfmpegStreamInput();
+		pAudio.reset( new FfmpegStreamInput() );
 		pAudio->ProcessFile(filename, start_offset, duration);
 		// Get the ID3 tag information.
 		auto_ptr < Metadata > pMetadata(new Metadata(filename));
@@ -96,12 +96,11 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 	numSamples = pAudio->getNumSamples();
 	duration2 = numSamples / sampleRate;
 
-    if (pAudio == NULL) {	// Unable to decode!
+    if (pAudio.get() == NULL) {	// Unable to decode!
 		throw std::runtime_error("Could not create decoder");
     }
 
     if (numSamples < 1) {
-		delete pAudio;
 		throw std::runtime_error("Could not create decode file (eof?)");
     }
     t1 = now() - t1;
@@ -140,15 +139,14 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 			t1, pCodegen->getNumCodes(), pCodegen->getJsonCodes().c_str()
 		);
 
-	delete pAudio;
     return output;
 }
 
 void usage()
 {
 	fprintf(stderr,
-			"Usage: codegen [ filename [seconds_start] [seconds_duration] | "
-			" - -f filename [-i <interval seconds>]\n");
+			"Usage: codegen [ filename [seconds_start] [seconds_duration]] | "
+			" - -f filename [-i <interval seconds>] [-j <json filename>]\n");
 	fprintf(stderr, "if - -f is used, a new file will be written out every interval seconds\n");
 	exit(-1);
 
@@ -159,15 +157,16 @@ int main(int argc, char **argv)
     if (argc < 2) usage();
 
     try {
-		char *filename = argv[1];
-		char *filename2 = NULL;  // What we put in the JSON output
+		char *in_fname = argv[1];
+		char *out_fname = NULL;  // Save file (when - -f given)
+		char *json_fname = NULL; // JSON file (when - -f given)
 		int start_offset = 0;
 		int duration = 0;
 		int interval = 0;
-		if (strcmp(filename, "-") == 0) {
+		if (strcmp(in_fname, "-") == 0) {
 			if (argc < 4) usage();
 			if (strcmp(argv[2], "-f") != 0) usage();
-			filename2 = argv[3];
+			out_fname = argv[3];
 			if (argc > 4) {
 				if (strcmp(argv[4], "-i") != 0) {
 					usage();
@@ -178,9 +177,21 @@ int main(int argc, char **argv)
 					usage();
 				}
 			}
+			if (argc > 6) {
+				if (strcmp(argv[6], "-j") != 0) {
+					usage();
+				}
+				if (argc > 7) {
+					json_fname = argv[7];
+				} else { 
+					usage();
+				}
+			}
+
+			if (!json_fname) json_fname = out_fname;
 
 		} else {
-			filename2 = filename;
+			out_fname = in_fname;
 			if (argc > 2)
 				start_offset = atoi(argv[2]);
 			if (argc > 3)
@@ -189,24 +200,30 @@ int main(int argc, char **argv)
 		
 		if (interval != 0) {
 			// this automatically means that we are reading from stdin
-			fprintf(stderr, "Writing output to %s-now().json\n", filename2);
+			int i = 0;
 			while (true) {
-				long long t1 = now2();
-				char *output = json_string_for_file(filename, filename2, 
+				char *output = json_string_for_file(in_fname, json_fname, 
 													start_offset, interval);
-				// write this out to filename2
+				// write this out to out_fname
 				char fname[256];
-				sprintf(fname, "%s-%lld.json", filename2, t1);
+				sprintf(fname, "%s-%d.json", out_fname, i++);
+				fprintf(stderr, "Writing output to %s\n", fname);
 				FILE * fOutput = fopen(fname,  "w");
-				if (!fOutput) throw std::runtime_error("Cannot open file for writing");
+				if (!fOutput) {
+					fprintf(stderr, "Cannot open file for writing");
+					continue;
+				}
+
 				fwrite(output, strlen(output), 1, fOutput);
 				//printf("%s", output);
 				fclose(fOutput);
+				free(output);
 			}
 		} else {
-			char *output = json_string_for_file(filename, filename2, 
+			char *output = json_string_for_file(in_fname, out_fname, 
 												start_offset, duration);
 			printf("%s", output);
+			free(output);
 		}
 	}
 	
