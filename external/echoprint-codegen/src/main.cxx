@@ -101,7 +101,9 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
     }
 
     if (numSamples < 1) {
-		throw std::runtime_error("Could not create decode file (eof?)");
+		//throw std::runtime_error("Could not create decode file (eof?)");
+		// Silently ignore this as it is most likely the last few bytes before eof...
+		return NULL;
     }
     t1 = now() - t1;
 
@@ -204,17 +206,21 @@ int main(int argc, char **argv)
 			while (true) {
 				char *output = json_string_for_file(in_fname, json_fname, 
 													start_offset, interval);
+				if (!output) break;
+
 				// write this out to out_fname
 				char fname[256];
-				sprintf(fname, "%s-%d.json", out_fname, i++);
-				fprintf(stderr, "Writing output to %s\n", fname);
+				int out_len = strlen(output);
+				sprintf(fname, "%s#%d.json", out_fname, i++);
+				fprintf(stderr, "Writing output to %s, %d\n", fname, out_len);
 				FILE * fOutput = fopen(fname,  "w");
 				if (!fOutput) {
 					fprintf(stderr, "Cannot open file for writing");
+					free(output);
 					continue;
 				}
 
-				fwrite(output, strlen(output), 1, fOutput);
+				fwrite(output, out_len, 1, fOutput);
 				//printf("%s", output);
 				fclose(fOutput);
 				free(output);
@@ -235,4 +241,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Unknown failure occurred\n");
 		return 2;
     }
+
+	return 0;
 }
