@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <memory>
+#include <string>
 #ifndef _WIN32
 #include <libgen.h>
 #include <dirent.h>
@@ -16,7 +17,8 @@
 #include "AudioStreamInput.h"
 #include "Metadata.h"
 #include "Codegen.h"
-#include <string>
+#include "Params.h"
+
 #define MAX_FILES 200000
 
 using namespace std;
@@ -70,14 +72,12 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
     double t1 = now();
     auto_ptr <AudioStreamInput> pAudio;
 	uint sampleRate;
-	uint bitrate;
 	uint numSamples;
 	uint duration2;
 
 	if (strcmp(filename, "-") == 0) { 
 		// Process stdin
-		sampleRate = 11025;   // samples per second
-		bitrate = sampleRate * 16 / 1024;     // kb/s
+		sampleRate = (uint) Params::AudioStreamInput::SamplingRate;
 		numSamples = sampleRate * duration;
 		pAudio.reset( new StdinStreamInput() );
 		pAudio->ProcessStandardInput(numSamples);
@@ -87,11 +87,7 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 	} else {
 		pAudio.reset( new FfmpegStreamInput() );
 		pAudio->ProcessFile(filename, start_offset, duration);
-		// Get the ID3 tag information.
-		auto_ptr < Metadata > pMetadata(new Metadata(filename));
-		bitrate = pMetadata->Bitrate();
-		sampleRate = pMetadata->SampleRate();
-	    duration2 = pMetadata->Seconds();
+		sampleRate = (uint) Params::AudioStreamInput::SamplingRate;
 	}
 	numSamples = pAudio->getNumSamples();
 	duration2 = numSamples / sampleRate;
@@ -117,9 +113,7 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
     char *output =
 	(char *) malloc(sizeof(char) * (16384 + strlen(pCodegen->getJsonCodes().c_str())));
 
-    sprintf(output, "{\"bitrate\":%d, "
-			"\"sample_rate\":%d, "
-			"\"duration\":%d, "
+    sprintf(output, "{\"duration\":%d, "
 			"\"filename\":\"%s\",\n"
 			"\"samples_decoded\":%d, "
 			"\"given_duration\":%d, "
@@ -129,8 +123,6 @@ char *json_string_for_file(char *filename, char *filename2, int start_offset, in
 			"\"decode_time\":%2.6f, "
 			"\"code_count\":%d,\n"
 			"\"code\":%s}",
-			bitrate,
-			sampleRate,
 			duration2,
 			escape(filename2).c_str(),
 			numSamples,
