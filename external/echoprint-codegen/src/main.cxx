@@ -204,7 +204,7 @@ int main(int argc, char **argv)
 				char fname[256];
 				int out_len = strlen(output);
 				sprintf(fname, "%s#%d.json", out_fname, i++);
-				fprintf(stderr, "Writing output to %s, %d\n", fname, out_len);
+				//fprintf(stderr, "Writing output to %s, %d\n", fname, out_len);
 				FILE * fOutput = fopen(fname,  "w");
 				if (!fOutput) {
 					fprintf(stderr, "Cannot open file for writing");
