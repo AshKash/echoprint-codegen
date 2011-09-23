@@ -2,11 +2,11 @@ UNAME := $(shell uname -s)
 CXX=g++
 CC=gcc
 ARCH=`uname -m`
-OPTFLAGS=-g -O0
-#OPTFLAGS=-O3 -DBOOST_UBLAS_NDEBUG -DNDEBUG
-CXXFLAGS=-Wall -I/usr/local/include/boost-1_35 `taglib-config --cflags` -fPIC $(OPTFLAGS)
+#OPTFLAGS=-g -O0
+OPTFLAGS=-O3 -DBOOST_UBLAS_NDEBUG -DNDEBUG
+CXXFLAGS=-Wall -fPIC $(OPTFLAGS)
 CFLAGS=-Wall -fPIC $(OPTFLAGS)
-LDFLAGS=`taglib-config --libs` -lz -lpthread $(OPTFLAGS)
+#LDFLAGS=-lz $(OPTFLAGS)
 
 MODULES_LIB = \
     AudioBufferInput.o \
@@ -17,7 +17,8 @@ MODULES_LIB = \
     MatrixUtility.o \
     SubbandAnalysis.o \
     Whitening.o
-MODULES = $(MODULES_LIB) Metadata.o
+#MODULES = $(MODULES_LIB) Metadata.o
+MODULES = $(MODULES_LIB)
 
 main: $(MODULES) main.o
 	$(CXX) $(MODULES) $(LDFLAGS) main.o -o ../echoprint-codegen 
@@ -34,7 +35,7 @@ endif
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-%.o: %.cxx %.h
+%.o: %.cxx %.h Common.h Params.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 %.o: %.cxx

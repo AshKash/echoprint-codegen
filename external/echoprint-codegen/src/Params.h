@@ -12,7 +12,7 @@
 
 namespace Params {
     namespace AudioStreamInput {
-        const float SamplingRate = 11025.0f;
+        const float SamplingRate = 8000.0f;
         const uint Channels = 1;
         const float SecondsPerChunk = 1.0f;
         const uint BytesPerSample = 4; // floats

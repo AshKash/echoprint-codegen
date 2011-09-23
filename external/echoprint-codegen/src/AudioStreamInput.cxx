@@ -12,6 +12,7 @@
 #include <vector>
 #ifndef _WIN32
 #include <unistd.h>
+#include <endian.h>
 #define POPEN_MODE "r"
 #else
 #include "win_unistd.h"
@@ -100,11 +101,14 @@ bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     while (true) {
         short* pChunk = new short[nSamplesPerChunk];
         samplesRead = fread(pChunk, sizeof (short), nSamplesPerChunk, pFile);
-		//fprintf(stderr, "***Read: %d\n", samplesRead);
-		if (samplesRead == 0) break;
-		_NumberSamples += samplesRead;
-		vChunks.push_back(pChunk);
-		if (numSamples != 0 && _NumberSamples >= numSamples) break;
+				//fprintf(stderr, "***Read: %d\n", samplesRead);
+				if (samplesRead == 0) {
+						delete[] pChunk;
+						break;
+				}
+				_NumberSamples += samplesRead;
+				vChunks.push_back(pChunk);
+				if (numSamples != 0 && _NumberSamples >= numSamples) break;
     }
 
     // Convert from shorts to 16-bit floats and copy into sample buffer.
@@ -115,9 +119,11 @@ bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     {
         short* pChunk = vChunks[i];
         uint numSamples = samplesLeft < nSamplesPerChunk ? samplesLeft : nSamplesPerChunk;
+				//fprintf(stderr, "numSamples: %d\n", numSamples);
 
-        for (uint j = 0; j < numSamples; j++)
-            _pSamples[sampleCounter++] = (float) pChunk[j] / 32768.0f;
+        for (uint j = 0; j < numSamples; j++) {
+            _pSamples[sampleCounter++] = (float) le16toh(pChunk[j]) / 32768.0f;
+				}
 
         samplesLeft -= numSamples;
         delete [] pChunk, vChunks[i] = NULL;
