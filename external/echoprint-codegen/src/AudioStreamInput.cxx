@@ -91,7 +91,7 @@ bool AudioStreamInput::ProcessRawFile(const char* rawFilename) {
 // ffmpeg -i fille.mp3 -f s16le -ac 1 -ar 11025 - | TestAudioSTreamInput
 bool AudioStreamInput::ProcessStandardInput(uint numSamples) {
     // TODO - Windows will explodey at not setting O_BINARY on stdin.
-  return ProcessFilePointer(stdin, numSamples);
+		return ProcessFilePointer(stdin, numSamples);
 }
 
 bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {

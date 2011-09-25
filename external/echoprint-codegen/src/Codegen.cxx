@@ -59,7 +59,7 @@ string Codegen::createJsonCodes(vector<FPCode> vCodes)
     if (i != vCodes.size() - 1)
       codestream << ",";
   }
-  codestream << "],[";
+  codestream << "],\n[";
   
   for (uint i = 0; i < vCodes.size(); i++) {
     int hash = vCodes[i].code;
