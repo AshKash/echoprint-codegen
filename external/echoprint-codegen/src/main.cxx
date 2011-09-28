@@ -15,7 +15,6 @@
 #include <stdexcept>
 
 #include "AudioStreamInput.h"
-#include "Metadata.h"
 #include "Codegen.h"
 #include "Params.h"
 
@@ -143,7 +142,7 @@ void usage()
 						" - -f filename [-i <interval seconds>] [-j <json filename>]\n");
 		fprintf(stderr, 
 						"if - -f is used, a new file will be written out every interval "
-						"seconds\n");
+						"seconds.\n");
 		exit(-1);
 }
 
@@ -200,6 +199,7 @@ int main(int argc, char **argv)
 								char *output = json_string_for_file(in_fname, json_fname, 
 																										start_offset, interval);
 								if (!output) break;
+								start_offset += interval;
 								
 								// write this out to out_fname
 								char fname[256];

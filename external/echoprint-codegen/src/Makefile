@@ -1,49 +1,43 @@
-UNAME := $(shell uname -s)
-CXX=g++
-CC=gcc
-ARCH=`uname -m`
 #OPTFLAGS=-g -O0
 OPTFLAGS=-O3 -DBOOST_UBLAS_NDEBUG -DNDEBUG
 CXXFLAGS=-Wall -fPIC $(OPTFLAGS)
 CFLAGS=-Wall -fPIC $(OPTFLAGS)
 #LDFLAGS=-lz $(OPTFLAGS)
+SUFFIXES += .P
 
-MODULES_LIB = \
-    AudioBufferInput.o \
-    AudioStreamInput.o \
-    Base64.o \
-    Codegen.o \
-    Fingerprint.o \
-    MatrixUtility.o \
-    SubbandAnalysis.o \
-    Whitening.o
-#MODULES = $(MODULES_LIB) Metadata.o
-MODULES = $(MODULES_LIB)
+#We don't need to clean up when we're making these targets
+NODEPS:=clean tags svn
 
-main: $(MODULES) main.o
-	$(CXX) $(MODULES) $(LDFLAGS) main.o -o ../echoprint-codegen 
-	$(CXX) -shared -fPIC -o libcodegen.so $(MODULES_LIB) -lz
-ifeq ($(UNAME),Darwin)
-	libtool -dynamic -flat_namespace -install_name libcodegen.4.1.1.dylib -lSystem -compatibility_version 4.1 -macosx_version_min 10.6 \
-	    -current_version 4.1.1 -o libcodegen.4.1.1.dylib -undefined suppress \
-	    $(MODULES) -framework vecLib -framework Accelerate
+#Find all the C++ files in the directory
+SOURCES:=$(shell find . -name "*.cxx")
+#These are the dependency files, which make will clean up after it creates them
+DEPFILES:=$(patsubst %.cxx, .deps/%.P, $(SOURCES))
+OBJFILES:=$(patsubst %.cxx, %.o, $(SOURCES))
+PROG:=../lmcodegen
+.DEFAULT_GOAL:=$(PROG)
+
+#Don't create dependencies when we're cleaning, for instance
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
+    #Chances are, these files don't exist.  GMake will create them and
+    #clean up automatically afterwards
+    -include $(DEPFILES)
 endif
 
-%.o: %.c %.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(PROG): $(OBJFILES)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJFILES)
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+.deps:
+	@mkdir -p .deps
 
-%.o: %.cxx %.h Common.h Params.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+#This is the rule for creating the dependency files
+.deps/%.P: .deps ./%.cxx Common.h Params.h
+	$(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cxx,%.o,$<)' $< > $@
 
-%.o: %.cxx
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+#This rule does the compilation
+%.o: %.cxx .deps/%.P
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
-clean:
-	rm -f *.o ../echoprint-codegen
-	rm -f *.so
-ifeq ($(UNAME),Darwin)
-	rm -f *.dylib
-endif
+clean: 
+	@rm -rf .deps
+	@rm -f *.o
+	@rm -f $(PROG)

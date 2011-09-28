@@ -7,7 +7,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-
+// Murmurhash seed
+#define HASH_SEED 0x9ea5fa36
 
 #include <assert.h>
 #ifndef _WIN32
@@ -32,7 +33,6 @@
 #ifndef NULL
 #define NULL 0
 #endif
-
 
 // Returns the current date in seconds.  The precision is in microseconds.
 static inline double now (void) {

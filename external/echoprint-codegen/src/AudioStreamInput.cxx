@@ -87,8 +87,10 @@ bool AudioStreamInput::ProcessRawFile(const char* rawFilename) {
     return ok;
 }
 
+unsigned int MurmurHashNeutral2 ( const void * key, int len, unsigned int seed );
 // reads raw signed 16-bit shorts from stdin, for example:
 // ffmpeg -i fille.mp3 -f s16le -ac 1 -ar 11025 - | TestAudioSTreamInput
+
 bool AudioStreamInput::ProcessStandardInput(uint numSamples) {
     // TODO - Windows will explodey at not setting O_BINARY on stdin.
 		return ProcessFilePointer(stdin, numSamples);
@@ -100,8 +102,11 @@ bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     uint samplesRead = 0;
     while (true) {
         short* pChunk = new short[nSamplesPerChunk];
-        samplesRead = fread(pChunk, sizeof (short), nSamplesPerChunk, pFile);
-				//fprintf(stderr, "***Read: %d\n", samplesRead);
+        samplesRead = fread(pChunk, Params::AudioStreamInput::BytesPerSample2,
+														nSamplesPerChunk, pFile);
+//				uint bufHash = MurmurHashNeutral2(pChunk, samplesRead * Params::AudioStreamInput::BytesPerSample2, HASH_SEED);
+
+//				fprintf(stderr, "***Read: %d, hash: %d\n", samplesRead, bufHash);
 				if (samplesRead == 0) {
 						delete[] pChunk;
 						break;
