@@ -27,6 +27,8 @@
 
 using std::string;
 
+#define DBG_INPUT 0
+
 namespace FFMPEG {
     // Do we think FFmpeg will read this as an audio file?
     bool IsAudioFile(const char* pFileName) {
@@ -58,6 +60,7 @@ bool AudioStreamInput::ProcessFile(const char* filename, int offset_s/*=0*/, int
 
     _Offset_s = offset_s;
     _Seconds = seconds;
+		_Filename = filename;
     std::string message = GetCommandLine(filename);
 
     FILE* fp = popen(message.c_str(), POPEN_MODE);
@@ -91,8 +94,10 @@ unsigned int MurmurHashNeutral2 ( const void * key, int len, unsigned int seed )
 // reads raw signed 16-bit shorts from stdin, for example:
 // ffmpeg -i fille.mp3 -f s16le -ac 1 -ar 11025 - | TestAudioSTreamInput
 
-bool AudioStreamInput::ProcessStandardInput(uint numSamples) {
+bool AudioStreamInput::ProcessStandardInput(uint numSamples, 
+																						const std::string filename) {
     // TODO - Windows will explodey at not setting O_BINARY on stdin.
+		_Filename = filename; // for debug purposes
 		return ProcessFilePointer(stdin, numSamples);
 }
 
@@ -120,6 +125,13 @@ bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     uint sampleCounter = 0;
     _pSamples = new float[_NumberSamples];
     uint samplesLeft = _NumberSamples;
+
+#if DBG_INPUT==1
+		// open debug output file
+		std::string fname = _Filename + ".s16le";
+		FILE* _debug_fout = fopen(fname.c_str(), "w");
+#endif
+
     for (uint i = 0; i < vChunks.size(); i++)
     {
         short* pChunk = vChunks[i];
@@ -128,12 +140,22 @@ bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
 
         for (uint j = 0; j < numSamples; j++) {
             _pSamples[sampleCounter++] = (float) le16toh(pChunk[j]) / 32768.0f;
+
+#if DBG_INPUT==1
+						fwrite(pChunk + j, 2, 1, _debug_fout);
+#endif
 				}
 
         samplesLeft -= numSamples;
         delete [] pChunk, vChunks[i] = NULL;
+
+
     }
     assert(samplesLeft == 0);
+
+#if DBG_INPUT==1
+		fclose(_debug_fout);
+#endif
 
     int error = ferror(pFile);
     bool success = error == 0;

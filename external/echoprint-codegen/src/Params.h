@@ -14,7 +14,7 @@ namespace Params {
     namespace AudioStreamInput {
         const float SamplingRate = 11025.0f;
         const uint Channels = 1;
-        const float SecondsPerChunk = 10.0f;
+        const float SecondsPerChunk = 1.0f;
         const uint BytesPerSample2 = 2; // shorts
         const uint MaxSamples = 66977792; // TODO: Remove this, or set it intelligently, at least. Good for 32-bit analyzer.
     }

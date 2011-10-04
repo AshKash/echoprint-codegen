@@ -64,7 +64,7 @@ string Codegen::createJsonCodes(vector<FPCode> vCodes)
     if (i != vCodes.size() - 1)
       codestream << ",";
   }
-  codestream << "]]";
+  codestream << "]]\n";
 
   return codestream.str();
   

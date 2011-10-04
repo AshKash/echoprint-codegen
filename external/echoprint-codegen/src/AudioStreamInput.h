@@ -23,7 +23,7 @@ public:
     virtual bool ProcessFile(const char* filename, int offset_s=0, int seconds=0);
     virtual std::string GetName() = 0;
     bool ProcessRawFile(const char* rawFilename);
-    bool ProcessStandardInput(uint numSamples=0);
+    bool ProcessStandardInput(uint numSamples, const std::string filename);
     bool ProcessFilePointer(FILE* pFile, uint numSamples=0);
     int getNumSamples() const {return _NumberSamples;}
     const float* getSamples() {return _pSamples;}
@@ -40,6 +40,11 @@ protected:
     int _Offset_s;
     int _Seconds;
 
+		// For debug purposes
+		std::string _Filename;
+		const std::string& getFilename() { return _Filename; }
+		void setFilename(std::string _f) { _Filename = _f; }
+
 };
 
 class StdinStreamInput : public AudioStreamInput {
@@ -47,7 +52,6 @@ public:
     std::string GetName(){return "stdin";};
 protected:
     bool IsSupported(const char* pFileName){ return (std::string("stdin") == pFileName);};
-    bool ProcessFile(const char* filename){ return ProcessStandardInput();}
     virtual std::string GetCommandLine(const char* filename){return "";} // hack
 };
 

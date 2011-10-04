@@ -30,7 +30,7 @@ $(PROG): $(OBJFILES)
 	@mkdir -p .deps
 
 #This is the rule for creating the dependency files
-.deps/%.P: .deps ./%.cxx Common.h Params.h
+.deps/%.P: %.cxx .deps 
 	$(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cxx,%.o,$<)' $< > $@
 
 #This rule does the compilation
