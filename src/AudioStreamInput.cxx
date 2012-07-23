@@ -12,6 +12,7 @@
 #include <vector>
 #ifndef _WIN32
 #include <unistd.h>
+#include <endian.h>
 #define POPEN_MODE "r"
 #else
 #include "win_unistd.h"
@@ -25,6 +26,8 @@
 #include "Params.h"
 
 using std::string;
+
+#define DBG_INPUT 0
 
 namespace FFMPEG {
     // Do we think FFmpeg will read this as an audio file?
@@ -57,6 +60,7 @@ bool AudioStreamInput::ProcessFile(const char* filename, int offset_s/*=0*/, int
 
     _Offset_s = offset_s;
     _Seconds = seconds;
+		_Filename = filename;
     std::string message = GetCommandLine(filename);
 
     FILE* fp = popen(message.c_str(), POPEN_MODE);
@@ -86,40 +90,72 @@ bool AudioStreamInput::ProcessRawFile(const char* rawFilename) {
     return ok;
 }
 
+unsigned int MurmurHashNeutral2 ( const void * key, int len, unsigned int seed );
 // reads raw signed 16-bit shorts from stdin, for example:
 // ffmpeg -i fille.mp3 -f s16le -ac 1 -ar 11025 - | TestAudioSTreamInput
-bool AudioStreamInput::ProcessStandardInput(void) {
+
+bool AudioStreamInput::ProcessStandardInput(uint numSamples, 
+																						const std::string filename) {
     // TODO - Windows will explodey at not setting O_BINARY on stdin.
-    return ProcessFilePointer(stdin);
+		_Filename = filename; // for debug purposes
+		return ProcessFilePointer(stdin, numSamples);
 }
 
-bool AudioStreamInput::ProcessFilePointer(FILE* pFile) {
+bool AudioStreamInput::ProcessFilePointer(FILE* pFile, uint numSamples) {
     std::vector<short*> vChunks;
     uint nSamplesPerChunk = (uint) Params::AudioStreamInput::SamplingRate * Params::AudioStreamInput::SecondsPerChunk;
     uint samplesRead = 0;
-    do {
+    while (true) {
         short* pChunk = new short[nSamplesPerChunk];
-        samplesRead = fread(pChunk, sizeof (short), nSamplesPerChunk, pFile);
-        _NumberSamples += samplesRead;
-        vChunks.push_back(pChunk);
-    } while (samplesRead > 0);
+        samplesRead = fread(pChunk, Params::AudioStreamInput::BytesPerSample2,
+														nSamplesPerChunk, pFile);
+//				uint bufHash = MurmurHashNeutral2(pChunk, samplesRead * Params::AudioStreamInput::BytesPerSample2, HASH_SEED);
+
+//				fprintf(stderr, "***Read: %d, hash: %d\n", samplesRead, bufHash);
+				if (samplesRead == 0) {
+						delete[] pChunk;
+						break;
+				}
+				_NumberSamples += samplesRead;
+				vChunks.push_back(pChunk);
+				if (numSamples != 0 && _NumberSamples >= numSamples) break;
+    }
 
     // Convert from shorts to 16-bit floats and copy into sample buffer.
     uint sampleCounter = 0;
     _pSamples = new float[_NumberSamples];
     uint samplesLeft = _NumberSamples;
+
+#if DBG_INPUT==1
+		// open debug output file
+		std::string fname = _Filename + ".s16le";
+		FILE* _debug_fout = fopen(fname.c_str(), "w");
+#endif
+
     for (uint i = 0; i < vChunks.size(); i++)
     {
         short* pChunk = vChunks[i];
         uint numSamples = samplesLeft < nSamplesPerChunk ? samplesLeft : nSamplesPerChunk;
+				//fprintf(stderr, "numSamples: %d\n", numSamples);
 
-        for (uint j = 0; j < numSamples; j++)
-            _pSamples[sampleCounter++] = (float) pChunk[j] / 32768.0f;
+        for (uint j = 0; j < numSamples; j++) {
+            _pSamples[sampleCounter++] = (float) le16toh(pChunk[j]) / 32768.0f;
+
+#if DBG_INPUT==1
+						fwrite(pChunk + j, 2, 1, _debug_fout);
+#endif
+				}
 
         samplesLeft -= numSamples;
         delete [] pChunk, vChunks[i] = NULL;
+
+
     }
     assert(samplesLeft == 0);
+
+#if DBG_INPUT==1
+		fclose(_debug_fout);
+#endif
 
     int error = ferror(pFile);
     bool success = error == 0;

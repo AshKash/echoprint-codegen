@@ -1,87 +1,43 @@
-# Version of echoprint, as a list. Is expanded out
-# for various version numbers.
-EP_VERSION := 4 1 1
-VERSION := $(word 1, $(EP_VERSION)).$(word 2, $(EP_VERSION)).$(word 3, $(EP_VERSION))
-VERSION_MAJ := $(word 1, $(EP_VERSION))
-VERSION_COMPAT := $(word 1, $(EP_VERSION)).$(word 2, $(EP_VERSION))
-UNAME := $(shell uname -s)
-CXX=g++
-CC=gcc
 #OPTFLAGS=-g -O0
 OPTFLAGS=-O3 -DBOOST_UBLAS_NDEBUG -DNDEBUG
-BOOST_CFLAGS=-I/usr/local/include/boost-1_35
-TAGLIB_CFLAGS=`taglib-config --cflags`
-TAGLIB_LIBS=`taglib-config --libs`
-CXXFLAGS=-Wall $(BOOST_CFLAGS) $(TAGLIB_CFLAGS) -fPIC $(OPTFLAGS)
+CXXFLAGS=-Wall -fPIC $(OPTFLAGS)
 CFLAGS=-Wall -fPIC $(OPTFLAGS)
-LDFLAGS=$(TAGLIB_LIBS) -lz -lpthread $(OPTFLAGS)
-LIBNAME=libcodegen.so
-SONAME=$(LIBNAME).$(VERSION_MAJ)
+#LDFLAGS=-lz $(OPTFLAGS)
+SUFFIXES += .P
 
-MODULES_LIB = \
-    AudioBufferInput.o \
-    AudioStreamInput.o \
-    Base64.o \
-    Codegen.o \
-    Fingerprint.o \
-    MatrixUtility.o \
-    SubbandAnalysis.o \
-    Whitening.o
-MODULES = $(MODULES_LIB) Metadata.o
+#We don't need to clean up when we're making these targets
+NODEPS:=clean tags svn
 
-all: libcodegen echoprint-codegen
+#Find all the C++ files in the directory
+SOURCES:=$(shell find . -name "*.cxx")
+#These are the dependency files, which make will clean up after it creates them
+DEPFILES:=$(patsubst %.cxx, .deps/%.P, $(SOURCES))
+OBJFILES:=$(patsubst %.cxx, %.o, $(SOURCES))
+PROG:=../lmcodegen
+.DEFAULT_GOAL:=$(PROG)
 
-libcodegen: $(MODULES_LIB)
-ifeq ($(UNAME),Darwin)
-	libtool -dynamic -flat_namespace -install_name libcodegen.$(VERSION).dylib -lSystem -compatibility_version $(VERSION_COMPAT) \
-		-macosx_version_min 10.6 -current_version $(VERSION) -o libcodegen.$(VERSION).dylib -undefined suppress \
-	    $(MODULES_LIB) -framework vecLib -framework Accelerate
-else
-	$(CXX) -shared -fPIC -Wl,-soname,$(SONAME) -o $(LIBNAME).$(VERSION) $(MODULES_LIB) -lz
+#Don't create dependencies when we're cleaning, for instance
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
+    #Chances are, these files don't exist.  GMake will create them and
+    #clean up automatically afterwards
+    -include $(DEPFILES)
 endif
 
-echoprint-codegen: $(MODULES) main.o
-	$(CXX) $(MODULES) $(LDFLAGS) main.o -o ../echoprint-codegen
+$(PROG): $(OBJFILES)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJFILES)
 
-%.o: %.c %.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+.deps:
+	@mkdir -p .deps
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+#This is the rule for creating the dependency files
+.deps/%.P: %.cxx .deps 
+	$(CXX) $(CXXFLAGS) -MM -MT '$(patsubst %.cxx,%.o,$<)' $< > $@
 
-%.o: %.cxx %.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+#This rule does the compilation
+%.o: %.cxx .deps/%.P
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
-%.o: %.cxx
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-clean:
-	rm -f *.o ../echoprint-codegen
-	rm -f libcodegen.so*
-ifeq ($(UNAME),Darwin)
-	rm -f *.dylib
-endif
-
-PREFIX ?= /usr/local
-DESTDIR ?= $(PREFIX)
-BINDIR ?= /bin
-LIBDIR ?= /lib
-INCLUDEDIR ?= /include
-
-install: all
-	install -d $(DESTDIR)$(BINDIR)
-	install ../echoprint-codegen $(DESTDIR)$(BINDIR)
-	install -d $(DESTDIR)$(INCLUDEDIR)/echoprint
-	install -pm 644 Codegen.h $(DESTDIR)$(INCLUDEDIR)/echoprint/
-	install -d $(DESTDIR)$(LIBDIR)
-ifeq ($(UNAME),Darwin)
-	install -m 755 libcodegen.$(VERSION).dylib $(DESTDIR)$(LIBDIR)
-	ln -fs $(DESTDIR)$(LIBDIR)/libcodegen.$(VERSION) $(DESTDIR)$(LIBDIR)/libcodegen.$(VERSION_MAJ).dylib
-	ln -fs $(DESTDIR)$(LIBDIR)/libcodegen.$(VERSION_MAJ).dylib $(DESTDIR)$(LIBDIR)/libcodegen.dylib
-else
-	install -m 755 $(LIBNAME).$(VERSION) $(DESTDIR)$(LIBDIR)
-	ln -fs $(DESTDIR)$(LIBDIR)/$(LIBNAME).$(VERSION) $(DESTDIR)$(LIBDIR)/$(SONAME)
-	ln -fs $(DESTDIR)$(LIBDIR)/$(SONAME) $(DESTDIR)$(LIBDIR)/$(LIBNAME)
-endif
-
-.PHONY: clean all libcodegen echoprint-codegen install
+clean: 
+	@rm -rf .deps
+	@rm -f *.o
+	@rm -f $(PROG)

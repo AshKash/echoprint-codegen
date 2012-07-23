@@ -47,6 +47,4 @@ bool FileOutput(const matrix_f& A, const char* filename) {
     return success;
 }
 
-
-
 } // namespace

@@ -12,11 +12,8 @@
 #include <string>
 #include <math.h>
 #include "File.h"
-#if defined(_WIN32) && !defined(__MINGW32__)
+#ifdef _WIN32
 #define snprintf _snprintf
-#define DEVNULL "nul"
-#else
-#define DEVNULL "/dev/null"
 #endif
 
 class AudioStreamInput {
@@ -26,8 +23,8 @@ public:
     virtual bool ProcessFile(const char* filename, int offset_s=0, int seconds=0);
     virtual std::string GetName() = 0;
     bool ProcessRawFile(const char* rawFilename);
-    bool ProcessStandardInput(void);
-    bool ProcessFilePointer(FILE* pFile);
+    bool ProcessStandardInput(uint numSamples, const std::string filename);
+    bool ProcessFilePointer(FILE* pFile, uint numSamples=0);
     int getNumSamples() const {return _NumberSamples;}
     const float* getSamples() {return _pSamples;}
     double getDuration() { return (double)getNumSamples() / Params::AudioStreamInput::SamplingRate; }
@@ -43,6 +40,11 @@ protected:
     int _Offset_s;
     int _Seconds;
 
+		// For debug purposes
+		std::string _Filename;
+		const std::string& getFilename() { return _Filename; }
+		void setFilename(std::string _f) { _Filename = _f; }
+
 };
 
 class StdinStreamInput : public AudioStreamInput {
@@ -50,7 +52,6 @@ public:
     std::string GetName(){return "stdin";};
 protected:
     bool IsSupported(const char* pFileName){ return (std::string("stdin") == pFileName);};
-    bool ProcessFile(const char* filename){ return ProcessStandardInput();}
     virtual std::string GetCommandLine(const char* filename){return "";} // hack
 };
 
@@ -61,13 +62,19 @@ protected:
     std::string GetCommandLine(const char* filename) {
         // TODO: Windows
         char message[4096] = {0};
-        if (_Offset_s == 0 && _Seconds == 0)
-            snprintf(message, NELEM(message), "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le - 2>%s",
-                    filename, Params::AudioStreamInput::Channels, (uint) Params::AudioStreamInput::SamplingRate, DEVNULL);
-        else
-            snprintf(message, NELEM(message), "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le -t %d -ss %d - 2>%s",
-                    filename, Params::AudioStreamInput::Channels, (uint) Params::AudioStreamInput::SamplingRate, _Seconds, _Offset_s, DEVNULL);
-
+        if (_Offset_s == 0 && _Seconds == 0) {
+            snprintf(message, NELEM(message), 
+					 "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le - 2>/dev/null",
+					 filename, Params::AudioStreamInput::Channels, 
+					 (uint) Params::AudioStreamInput::SamplingRate);
+        } else {
+            snprintf(message, NELEM(message), 
+					 "ffmpeg -i \"%s\"  -ac %d -ar %d -f s16le -t %d -ss %d - "
+					 "2>/dev/null",
+                    filename, Params::AudioStreamInput::Channels, 
+					 (uint) Params::AudioStreamInput::SamplingRate, 
+					 _Seconds, _Offset_s);
+		}
         return std::string(message);
     }
 };
@@ -84,13 +91,20 @@ protected:
     bool IsSupported(const char* pFileName){ return File::ends_with(pFileName, ".mp3");};
     std::string GetCommandLine(const char* filename) {
         char message[4096] = {0};
-        if (_Offset_s == 0 && _Seconds == 0)
-            snprintf(message, NELEM(message), "mpg123 --quiet --singlemix --stdout --rate %d \"%s\"",
-                (uint) Params::AudioStreamInput::SamplingRate, filename);
-        else
-            snprintf(message, NELEM(message), "mpg123 --quiet --singlemix --stdout --rate %d --skip %d --frames %d \"%s\"",
-                (uint) Params::AudioStreamInput::SamplingRate, (uint)(_Offset_s * FRAMES_PER_SECOND) /* unprecise */, (uint)ceilf(_Seconds * FRAMES_PER_SECOND) /* unprecise */, filename);
-        return std::string(message);
+        if (_Offset_s == 0 && _Seconds == 0) {
+            snprintf(message, NELEM(message), 
+					 "mpg123 --quiet --singlemix --stdout --rate %d \"%s\"",
+					 (uint) Params::AudioStreamInput::SamplingRate, filename);
+        } else {
+            snprintf(message, NELEM(message), 
+					 "mpg123 --quiet --singlemix --stdout --rate %d "
+					 "--skip %d --frames %d \"%s\"",
+					 (uint) Params::AudioStreamInput::SamplingRate, 
+					 (uint)(_Offset_s * FRAMES_PER_SECOND) /* unprecise */,
+					 (uint)ceilf(_Seconds * FRAMES_PER_SECOND) /* unprecise */,
+					 filename);
+			return std::string(message);
+		}
     }
 };
 

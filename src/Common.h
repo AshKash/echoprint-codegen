@@ -7,7 +7,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-
+// Murmurhash seed
+#define HASH_SEED 0x9ea5fa36
 
 #include <assert.h>
 #ifndef _WIN32
@@ -33,13 +34,21 @@
 #define NULL 0
 #endif
 
-
 // Returns the current date in seconds.  The precision is in microseconds.
 static inline double now (void) {
     struct timeval tv;
     double now;
     gettimeofday (&tv, NULL);
     now = 1e-6 * tv.tv_usec + tv.tv_sec;
+    return now;
+}
+
+// Returns the current date in seconds.  The precision is in microseconds.
+static inline long long now2 (void) {
+    struct timeval tv;
+    long long now;
+    gettimeofday (&tv, NULL);
+    now = tv.tv_usec + 1e+6 * tv.tv_sec;
     return now;
 }
 

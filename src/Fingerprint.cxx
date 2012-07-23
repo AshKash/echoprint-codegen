@@ -8,45 +8,55 @@
 #include "Params.h"
 #include <string.h>
 
-#ifdef _WIN32
-#include "win_funcs.h"
-#endif
+//-----------------------------------------------------------------------------
+// MurmurHashNeutral2, by Austin Appleby
 
-unsigned int MurmurHash2 ( const void * key, int len, unsigned int seed ) {
-    // MurmurHash2, by Austin Appleby http://sites.google.com/site/murmurhash/
-    // m and r are constants set by austin
-    const unsigned int m = 0x5bd1e995;
-    const int r = 24;
-    // Initialize the hash to a 'random' value
-    unsigned int h = seed ^ len;
-    // Mix 4 bytes at a time into the hash
-    const unsigned char * data = (const unsigned char *)key;
-    while(len >= 4)    {
-        unsigned int k = *(unsigned int *)data;
-        k *= m;
-        k ^= k >> r;
-        k *= m;
-        h *= m;
-        h ^= k;
-        data += 4;
-        len -= 4;
-    }
+// Same as MurmurHash2, but endian- and alignment-neutral.
+// Half the speed though, alas.
 
-    // Handle the last few bytes of the input array
-    switch(len)    {
-        case 3: h ^= data[2] << 16;
-        case 2: h ^= data[1] << 8;
-        case 1: h ^= data[0];
-                h *= m;
-    };
+unsigned int MurmurHashNeutral2 ( const void * key, int len, unsigned int seed )
+{
+	const unsigned int m = 0x5bd1e995;
+	const int r = 24;
 
-    // Do a few final mixes of the hash to ensure the last few
-    // bytes are well-incorporated.
-    h ^= h >> 13;
-    h *= m;
-    h ^= h >> 15;
-    return h;
-}
+	unsigned int h = seed ^ len;
+
+	const unsigned char * data = (const unsigned char *)key;
+
+	while(len >= 4)
+	{
+		unsigned int k;
+
+		k  = data[0];
+		k |= data[1] << 8;
+		k |= data[2] << 16;
+		k |= data[3] << 24;
+
+		k *= m; 
+		k ^= k >> r; 
+		k *= m;
+
+		h *= m;
+		h ^= k;
+
+		data += 4;
+		len -= 4;
+	}
+	
+	switch(len)
+	{
+	case 3: h ^= data[2] << 16;
+	case 2: h ^= data[1] << 8;
+	case 1: h ^= data[0];
+	        h *= m;
+	};
+
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
+} 
 
 Fingerprint::Fingerprint(SubbandAnalysis* pSubbandAnalysis, int offset)
     : _pSubbandAnalysis(pSubbandAnalysis), _Offset(offset) { }
@@ -73,7 +83,7 @@ uint Fingerprint::adaptiveOnsets(int ttarg, matrix_u&out, uint*&onset_counter_fo
 
     int nc =  floor((float)E.size2()/(float)hop)-(floor((float)nsm/(float)hop)-1);
     matrix_f Eb = matrix_f(nc, 8);
-    for(uint r=0;r<Eb.size1();r++) for(uint c=0;c<Eb.size2();c++) Eb(r,c) = 0.0;
+	for(uint r=0;r<Eb.size1();r++) for(uint c=0;c<Eb.size2();c++) Eb(r,c) = 0.0;
 
     for(i=0;i<nc;i++) {
         for(j=0;j<SUBBANDS;j++) {
@@ -188,58 +198,58 @@ void Fingerprint::Compute() {
     matrix_u out;
     uint onset_count = adaptiveOnsets(345, out, onset_counter_for_band);
     _Codes.resize(onset_count*6);
-
+	
     for(unsigned char band=0;band<SUBBANDS;band++) {
         if (onset_counter_for_band[band]>2) {
             for(uint onset=0;onset<onset_counter_for_band[band]-2;onset++) {
                 // What time was this onset at?
                 uint time_for_onset_ms_quantized = quantized_time_for_frame_absolute(out(band,onset));
-
+				
                 uint p[2][6];
-                for (int i = 0; i < 6; i++) {
-                    p[0][i] = 0;
-                    p[1][i] = 0;
-                }
                 int nhashes = 6;
-
-                if ((int)onset == (int)onset_counter_for_band[band]-4)  { nhashes = 3; }
-                if ((int)onset == (int)onset_counter_for_band[band]-3)  { nhashes = 1; }
-                p[0][0] = (out(band,onset+1) - out(band,onset));
-                p[1][0] = (out(band,onset+2) - out(band,onset+1));
-                if(nhashes > 1) {
-                    p[0][1] = (out(band,onset+1) - out(band,onset));
-                    p[1][1] = (out(band,onset+3) - out(band,onset+1));
-                    p[0][2] = (out(band,onset+2) - out(band,onset));
-                    p[1][2] = (out(band,onset+3) - out(band,onset+2));
-                    if(nhashes > 3) {
-                        p[0][3] = (out(band,onset+1) - out(band,onset));
-                        p[1][3] = (out(band,onset+4) - out(band,onset+1));
-                        p[0][4] = (out(band,onset+2) - out(band,onset));
-                        p[1][4] = (out(band,onset+4) - out(band,onset+2));
-                        p[0][5] = (out(band,onset+3) - out(band,onset));
-                        p[1][5] = (out(band,onset+4) - out(band,onset+3));
-                    }
-                }
-
-                // For each pair emit a code
-                for(uint k=0;k<6;k++) {
-                    // Quantize the time deltas to 23ms
-                    short time_delta0 = (short)quantized_time_for_frame_delta(p[0][k]);
-                    short time_delta1 = (short)quantized_time_for_frame_delta(p[1][k]);
-                    // Create a key from the time deltas and the band index
-                    memcpy(hash_material+0, (const void*)&time_delta0, 2);
-                    memcpy(hash_material+2, (const void*)&time_delta1, 2);
-                    memcpy(hash_material+4, (const void*)&band, 1);
-                    uint hashed_code = MurmurHash2(&hash_material, 5, HASH_SEED) & HASH_BITMASK;
-
-                    // Set the code alongside the time of onset
-                    _Codes[actual_codes++] = FPCode(time_for_onset_ms_quantized, hashed_code);
-                    //fprintf(stderr, "whee %d,%d: [%d, %d] (%d, %d), %d = %u at %d\n", actual_codes, k, time_delta0, time_delta1, p[0][k], p[1][k], band, hashed_code, time_for_onset_ms_quantized);
-                }
-            }
+				for (uint i = 0; i < 6;i++) {
+					p[0][i] = 0;
+					p[1][i] = 0;
+				}
+				
+				if ((int)onset == (int)onset_counter_for_band[band]-4)  { nhashes = 3; }
+				if ((int)onset == (int)onset_counter_for_band[band]-3)  { nhashes = 1; }
+				p[0][0] = (out(band,onset+1) - out(band,onset));
+				p[1][0] = (out(band,onset+2) - out(band,onset+1));
+				if(nhashes > 1) {
+					p[0][1] = (out(band,onset+1) - out(band,onset));
+					p[1][1] = (out(band,onset+3) - out(band,onset+1));
+					p[0][2] = (out(band,onset+2) - out(band,onset));
+					p[1][2] = (out(band,onset+3) - out(band,onset+2));
+					if(nhashes > 3) {
+						p[0][3] = (out(band,onset+1) - out(band,onset));
+						p[1][3] = (out(band,onset+4) - out(band,onset+1));
+						p[0][4] = (out(band,onset+2) - out(band,onset));
+						p[1][4] = (out(band,onset+4) - out(band,onset+2));
+						p[0][5] = (out(band,onset+3) - out(band,onset));
+						p[1][5] = (out(band,onset+4) - out(band,onset+3));
+					}
+				}
+				
+				// For each pair emit a code
+				for(uint k=0;k<6;k++) {
+					// Quantize the time deltas to 23ms
+					short time_delta0 = (short)quantized_time_for_frame_delta(p[0][k]);
+					short time_delta1 = (short)quantized_time_for_frame_delta(p[1][k]);
+					// Create a key from the time deltas and the band index
+					memcpy(hash_material+0, (const void*)&time_delta0, 2);
+					memcpy(hash_material+2, (const void*)&time_delta1, 2);
+					memcpy(hash_material+4, (const void*)&band, 1);
+					uint hashed_code = MurmurHashNeutral2(&hash_material, 5, HASH_SEED) & HASH_BITMASK;
+					
+					// Set the code alongside the time of onset
+					_Codes[actual_codes++] = FPCode(time_for_onset_ms_quantized, hashed_code);
+					//fprintf(stderr, "whee %d,%d: [%d, %d] (%d, %d), %d = %u at %d\n", actual_codes, k, time_delta0, time_delta1, p[0][k], p[1][k], band, hashed_code, time_for_onset_ms_quantized);
+				}
+			}
         }
     }
-
+	
     _Codes.resize(actual_codes);
     delete [] onset_counter_for_band;
 }

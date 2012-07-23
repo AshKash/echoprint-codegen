@@ -13,9 +13,11 @@
 #include "MatrixUtility.h"
 #include <vector>
 
-#define HASH_SEED 0x9ea5fa36
+/* #define QUANTIZE_DT_S (1024.0/11025.0) */
+/* #define QUANTIZE_A_S (2048.0/11025.0) */
 #define QUANTIZE_DT_S (256.0/11025.0)
 #define QUANTIZE_A_S (256.0/11025.0)
+
 #define HASH_BITMASK 0x000fffff
 #define SUBBANDS 8
 
@@ -25,8 +27,6 @@ struct FPCode {
     uint frame;
     uint code;
 };
-
-unsigned int MurmurHash2 ( const void * key, int len, unsigned int seed );
 
 class Fingerprint {
 public:

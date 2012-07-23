@@ -8,10 +8,12 @@
 #define CODEGEN_H
 
 // Entry point for generating codes from PCM data.
-#define ECHOPRINT_VERSION 4.12
+// This is specific to Tvgram - Ashwin :)
+#define VERSION 5.00
 
 #include <string>
 #include <vector>
+#include <sys/types.h>
 
 #ifdef _MSC_VER
     #ifdef CODEGEN_EXPORTS
@@ -31,17 +33,20 @@ struct FPCode;
 
 class CODEGEN_API Codegen {
 public:
-    Codegen(const float* pcm, unsigned int numSamples, int start_offset);
+    Codegen(const float* pcm, uint numSamples, int start_offset);
 
-    std::string getCodeString(){return _CodeString;}
+    //string getCodeString(){return _CodeString;}
+	std::string getJsonCodes(){return _JsonCodes;}
     int getNumCodes(){return _NumCodes;}
-    static double getVersion() { return ECHOPRINT_VERSION; }
+    float getVersion() { return VERSION; }
 private:
     Fingerprint* computeFingerprint(SubbandAnalysis *pSubbandAnalysis, int start_offset);
-    std::string createCodeString(std::vector<FPCode> vCodes);
+    //string createCodeString(vector<FPCode> vCodes);
+	std::string createJsonCodes(std::vector<FPCode> vCodes);
 
-    std::string compress(const std::string& s);
-    std::string _CodeString;
+	std::string compress(const std::string& s);
+    //string _CodeString;
+	std::string _JsonCodes;
     int _NumCodes;
 };
 
